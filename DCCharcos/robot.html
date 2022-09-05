@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+
+<head>
+  <script src="https://kit.fontawesome.com/dbc6cb6204.js" crossorigin="anonymous"></script>
+</head>
+<html>
+<body>
+
+<div align="center">
+  <h1>Visualizador DCCharco y portales</h1>
+<script>
+  document.write('<canvas id="myCanvas" align="center" " style="border:2px solid #d3d3d3;">');
+  let xrange = 0;
+  let yrange = 0;
+  let robotPos = [];
+  let boxPos = [];
+  let objectivePos = [];
+  let obstaclePos = [];
+  const cellsize = 80;
+  // let robotsize = 40;
+  const robotsize = (4/5)*cellsize;
+  // let robotbaseradius = 30;
+  const robotbaseradius = (3/5)*cellsize;
+  // let boxsize = 20;
+  const boxsize = (2/5)*cellsize;
+  // let goalheight = 5;
+  const goalheight = (3/20)*cellsize;
+  const robotPath = './imgs/robot.png'; // Ruta para imagen de robot
+  const boxPath = './imgs/box.png'; // Ruta para imagen de caja
+  const floatPath = './imgs/float.png'; // Ruta para imagen de flotador
+  const goalPath = './imgs/goal.png'; // Ruta para imagen de objetivo/meta
+  const obstaclePath = './imgs/obstacle.png'; // Ruta para imagen de obstaculo
+  const waterPath = './imgs/water.png'; // Ruta para imagen de agua
+  const portalInPath = './imgs/portalIn.png';  // Ruta para imagen de portal de entrada
+  const portalOutPath = './imgs/portalOut.png';  // Ruta para imagen de portal de entrada
+</script>
+
+Your browser does not support the canvas element.
+</canvas>
+<p>
+  <button onmousedown="reset()">|&lt;&lt;</button>
+  <button onmousedown="drawcanvas(-1)">&lt;</button>
+  <button onmousedown="drawcanvas(1)">&gt;</button>
+  t=<time id="timeText"></time>
+</div>
+
+<!-- Manejo de input-->
+
+<input type="file" name="inputfile"
+            id="inputfile">
+    <br>
+    
+    <script type="text/javascript">
+        document.getElementById('inputfile')
+            .addEventListener('change', function() {
+              
+            var fr=new FileReader();
+            fr.onload=function(){
+              let lines = fr.result.split("\n");
+              
+              // Rango en X y en Y
+              xrange = +lines[0].split(',')[0];
+              yrange = +lines[0].split(',')[1];
+
+              // Tamaño canvas
+              document.getElementById("myCanvas").width = cellsize*(xrange+1);
+              document.getElementById("myCanvas").height = cellsize*(yrange+1);
+
+              // Tiempo maximo
+              let t_max = +lines[1];
+              
+              // Listas de posiciones
+              robotPos = [];
+              boxPos = [];
+              waterPos = [];
+              portalInPos= [];
+              portalOutPos= [];
+              objectivePos = [];
+              obstaclePos = [];
+              floatPos = [];
+              for (let i=0; i<=t_max;i++){robotPos.push([]);}
+              for (let i=0; i<=t_max;i++){boxPos.push([]);}
+              for (let i=0; i<=t_max;i++){floatPos.push([]);}
+              for (let i=2; i<lines.length;i++){
+                let data = lines[i].split(",");
+                let type = data[0];
+
+                let x, y, t, id
+                switch (type){
+                  case 'R': 
+                  t  = +data[4];
+                  id = +data[1];
+                  x  = +data[2];
+                  y  = +data[3];
+                  robotPos[t][id] = [id, x, y] 
+                  break;
+                  
+                  case 'C': 
+                  id = +data[1];
+                  x  = +data[2];
+                  y  = +data[3];
+                  z  = +data[4];
+                  t  = +data[5];
+                  boxPos[t][id] = [id, x, y] 
+                  break;
+
+                  case 'E':
+                    x = +data[1];
+                    y = +data[2];
+                    objectivePos.push([x,y]);
+                    break;
+                  
+                  case 'O':
+                    x = +data[1];
+                    y = +data[2];
+                    obstaclePos.push([x,y]);
+                    break;
+                  
+                  case 'W':
+                    x = +data[1];
+                    y = +data[2];
+                    waterPos.push([x,y]);
+                    break;
+
+                  case 'Pin':
+                    x = +data[1];
+                    y = +data[2];
+                    portalInPos.push([x,y]);
+                    break;
+                  
+                  case 'Pout':
+                    x = +data[1];
+                    y = +data[2];
+                    portalOutPos.push([x,y]);
+                    break;
+
+                  case 'F':
+                    id = +data[1];
+                    x  = +data[2];
+                    y  = +data[3];
+                    z  = +data[4];
+                    t  = +data[5];
+                    floatPos[t][id] = [id, x, y] 
+                    break;
+                }
+              }
+              
+              time=0;
+              drawcanvas(0);
+            }
+            fr.readAsText(this.files[0]);
+        })
+
+    </script>
+
+<!-- Fin Manejo de input -->
+
+
+<script>
+  var time = 0;
+  colors = [
+  "#000000","#FF0000","#808080","#800000",
+  "#00FF00","#0000FF","#800080","#008080",
+  "#9966CC","#960018","#4B0082",
+  "#FF00AF","#FFBF00", "#FF4500","#FF2400",
+  "#B71C1C","#3E2723", "#F57F17"]
+
+ const robot_colors = ["#FA9B42","#606060"];
+ let goal_color = "#3DD262"
+// const goal_color = "#000000"
+
+  window.onload = function() {
+     drawcanvas(0);
+  }
+
+  function drawrobot(id,x,y) {
+     var canvas = document.getElementById("myCanvas");
+     var ctx = canvas.getContext("2d");
+     const img = new Image();
+     img.onload = () => {
+      ctx.drawImage(img, cellsize*x+(cellsize-robotsize)/2,cellsize*y+(cellsize-robotsize)/2, robotsize,robotsize);
+     };
+     ctx.stroke();
+     let r = (robotsize*0.8)/2
+     ctx.beginPath();
+     ctx.stroke();
+     img.src = robotPath;
+  }
+
+  function drawbox(id,x,y) {
+     var canvas = document.getElementById("myCanvas");
+     var ctx = canvas.getContext("2d");
+     const img = new Image();
+     img.onload = () => {
+      ctx.drawImage(img, cellsize*x+(cellsize-boxsize)/2,cellsize*y+(cellsize-boxsize)/2, boxsize,boxsize);
+     };
+     ctx.stroke();
+     ctx.beginPath();
+     ctx.stroke();
+     ctx.fillStyle = "#000000";
+     img.src = boxPath;
+  }
+
+  function drawfloat(id,x,y) {
+     var canvas = document.getElementById("myCanvas");
+     var ctx = canvas.getContext("2d");
+     const img = new Image();
+     img.onload = () => {
+      ctx.drawImage(img, cellsize*x+(cellsize-robotsize)/2,cellsize*y+(cellsize - boxsize)/2, robotsize,robotsize);
+     };
+     ctx.stroke();
+     ctx.beginPath();
+     ctx.stroke();
+     ctx.fillStyle = "#000000";
+     img.src = floatPath;
+  }
+
+  function drawgoal(id,x,y) {
+     var canvas = document.getElementById("myCanvas");
+     var ctx = canvas.getContext("2d");
+     const img = new Image();
+     img.onload = () => {
+      ctx.drawImage(img, cellsize*x+(cellsize-boxsize)/4,cellsize*y+(cellsize-boxsize)/4, 7/10*cellsize, 7/10*cellsize);
+     };
+    ctx.stroke();
+    ctx.fillStyle = "#000000";
+    img.src = goalPath;
+  }
+
+
+  function drawobstacle(id,x,y) {
+     var canvas = document.getElementById("myCanvas");
+     var ctx = canvas.getContext("2d");
+     const img = new Image();
+     img.onload = () => {
+      ctx.drawImage(img, cellsize*x,cellsize*y,  cellsize, cellsize);
+     };
+     ctx.stroke();
+     img.src = obstaclePath;
+  }
+
+  function drawwater(id,x,y) {
+     var canvas = document.getElementById("myCanvas");
+     var ctx = canvas.getContext("2d");
+     const img = new Image();
+     img.onload = () => {
+      ctx.drawImage(img, cellsize*x,cellsize*y,  cellsize, cellsize);
+     };
+     ctx.stroke();
+     img.src = waterPath;
+  }
+
+  function drawportalIn(id,x,y) {
+     var canvas = document.getElementById("myCanvas");
+     var ctx = canvas.getContext("2d");
+     const img = new Image();
+     img.onload = () => {
+      ctx.drawImage(img, cellsize*x,cellsize*y,  cellsize, cellsize);
+     };
+     ctx.stroke();
+     img.src = portalInPath;
+  }
+
+  function drawportalOut(id,x,y) {
+     var canvas = document.getElementById("myCanvas");
+     var ctx = canvas.getContext("2d");
+     const img = new Image();
+     img.onload = () => {
+      ctx.drawImage(img, cellsize*x,cellsize*y,  cellsize, cellsize);
+     };
+     ctx.stroke();
+     img.src = portalOutPath;
+  }
+
+
+  function drawrobots(delta) {
+  
+   var canvas = document.getElementById("myCanvas");
+   var ctx = canvas.getContext("2d");
+   var img = document.getElementById("robot_image");
+
+   if (time + delta < robotPos.length && time + delta >= 0) {
+    time = time + delta;
+   }
+   
+
+   for (j=0;j<robotPos[time].length;j++) {
+        drawrobot(robotPos[time][j][0],robotPos[time][j][1],robotPos[time][j][2]);
+   }
+
+   for (j=0;j<floatPos[time].length;j++) {
+        drawfloat(floatPos[time][j][0],floatPos[time][j][1],floatPos[time][j][2]);
+   }
+
+   for (j=0;j<boxPos[time].length;j++) {
+        drawbox(boxPos[time][j][0],boxPos[time][j][1],boxPos[time][j][2]);
+   }
+
+  }
+
+  function drawcanvas(delta) {
+    if (!xrange) return;
+    var canvas = document.getElementById("myCanvas");
+    var ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    for (i = 1; i <= xrange; i++) {
+      ctx.moveTo(cellsize*i, 0);
+      ctx.lineTo(cellsize*i, cellsize*(yrange+1));
+    }
+    for (i = 1; i <= yrange; i++) {
+      ctx.moveTo(0,cellsize*i);
+      ctx.lineTo(cellsize*(xrange+1),cellsize*i);
+    }
+    
+    
+    for (j=0; j<objectivePos.length; j++) {
+      drawgoal(j,objectivePos[j][0], objectivePos[j][1] )
+    }
+    ctx.stroke();
+    for (j=0; j<obstaclePos.length; j++) {
+      drawobstacle(j,obstaclePos[j][0], obstaclePos[j][1] )
+    }
+
+    for (j=0; j<waterPos.length; j++) {
+      drawwater(j,waterPos[j][0], waterPos[j][1] )
+    }
+
+    for (j=0; j<portalInPos.length; j++) {
+      drawportalIn(j,portalInPos[j][0], portalInPos[j][1] )
+    }
+
+    for (j=0; j<portalOutPos.length; j++) {
+      drawportalOut(j,portalOutPos[j][0], portalOutPos[j][1] )
+    }
+
+    ctx.stroke();
+    drawrobots(delta);
+    
+      document.getElementById("timeText").textContent=time;
+  };
+
+  function reset() {
+     time=0;
+     drawcanvas();
+  }
+</script>
+
+
+</body>
+</html>
